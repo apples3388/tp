@@ -29,7 +29,7 @@ class Index extends Base
      */
     public function index()
     {
-        $result = StatisticalModel::IndexData();
+        $result = StatisticalModel::indexData();
         return_msg($result[0],$result[1],$result[2]);
     }
 

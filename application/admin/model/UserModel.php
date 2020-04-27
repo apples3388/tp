@@ -11,7 +11,7 @@ class UserModel extends BaseModel
         parent::__construct();
     }
 
-    public static function UserList($params)
+    public static function userList($params)
     {
         $where = "  a.is_del = 0 ";
         if($params['keywords']){
@@ -49,7 +49,8 @@ class UserModel extends BaseModel
         $list = Db::query($sql);
         foreach($list as $key => $val)
         {
-            $list[$key]['last_carwash_address'] = self::getUserLastCarwashInfo($val['id'])['section_name'];
+            $section = self::getUserLastCarwashInfo($val['id']);
+            $list[$key]['last_carwash_address'] = !empty($section) ? $section['section_name'] : '';
             $list[$key]['last_login'] = ($val['last_login']>0) ? date("Y-m-d H:i:s",$val['last_login']) : '暂无记录';
             $list[$key]['createtime'] = date("Y-m-d H:i:s",$val['createtime']);
             $list[$key]['all_money'] =  intval($val['all_money']);
@@ -73,7 +74,11 @@ class UserModel extends BaseModel
                   ORDER BY createtime DESC 
                   LIMIT 1)";
         $result = Db::query($sql);
-        return $result;
+        if(!empty($result))
+        {
+            return $result[0];
+        }
+        return false;
     }
 
 }
