@@ -3,6 +3,7 @@ namespace app\admin\model;
 use think\Config;
 use think\Db;
 use app\common\model\ErrorCode;
+use app\common\model\StaffQueueModel;
 
 class StaffModel extends BaseModel
 {
