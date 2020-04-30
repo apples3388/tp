@@ -31,28 +31,31 @@ class GoodsModel extends BaseModel
 
     public static function goodsList($data)
     {
-        global $_W;
-        $where = " WHERE is_del = 0 ";
+        $where = " is_del = 0 ";
         if($data['keywords']){
             $where .= " AND goods_name LIKE '%{$data['keywords']}%'";
         }
-        $total = pdo_fetchcolumn("select count(id) from " . tablename(GOODS) .$where);
+        $total = Db::name(GOODS)->where($where)->count('id');
         if($total <= 0)
         {
             return [ErrorCode::SUCCESS,'还没有添加商品'];
         }
+
         $sql = "SELECT 
                   * 
                 FROM
                   ".tablename(GOODS)."
-                {$where} 
+                WHERE {$where} 
                 ORDER BY id DESC 
                 LIMIT ".(($data['page']-1) * $data['size']).','.$data['size'];
-        $list = pdo_fetchall($sql);
-        foreach($list as $key => $val)
+        $list = Db::query($sql);
+        if(!empty($list))
         {
-//            $list[$key]['goods_img'] = tomedia($val['goods_img']);
-            $list[$key]['goods_img'] = 'https://'.$_SERVER['HTTP_HOST'].'/attachment/'.$val['goods_img'];
+            foreach($list as $key => $val)
+            {
+//                $list[$key]['goods_img'] = tomedia($val['goods_img']);
+//                $list[$key]['goods_img'] = 'https://'.$_SERVER['HTTP_HOST'].'/attachment/'.$val['goods_img'];
+            }
         }
         return [ErrorCode::SUCCESS ,'获取列表成功',['total'=>$total,'list'=>$list]];
     }

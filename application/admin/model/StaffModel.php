@@ -16,7 +16,7 @@ class StaffModel extends BaseModel
         $where = " a.is_del = 0 ";
 
         if($params['keywords']){
-            $where .= " AND a.name LIKE '%{$params['keywords']}%'";
+            $where .= " AND ( a.name LIKE '%{$params['keywords']}%' OR a.phone LIKE '%{$params['keywords']}%' ) ";
         }
         $total = Db::name(STAFF)->alias('a')->where($where)->count('id');
         if($total <= 0)
@@ -49,7 +49,6 @@ class StaffModel extends BaseModel
                 WHERE {$where} 
                 ORDER BY a.id DESC
                 LIMIT ".(($params['page']-1) * $params['size']).','.$params['size'];
-
         $list = Db::query($sql);
         if(!empty($list))
         {
@@ -82,28 +81,28 @@ class StaffModel extends BaseModel
             if($params['id'] > 0)
             {
                 $where['id'] = $params['id'];
-                pdo_update(STAFF, $params, $where);
+                Db::name(STAFF)->where($where)->update($params);
                 return [ErrorCode::SUCCESS,'编辑成功'];
             }
             else
             {
                 $params['passwd'] = '123456';
                 $params['createtime'] = TIMESTAMP;
-                pdo_begin();//开启事务
-                $result = pdo_insert(STAFF, $params);
-                $staff_id = pdo_insertid();
-                $result2 = pdo_insert(STAFF_FINANCE,['staff_id'=>$staff_id]);
+                Db::startTrans();//开启事务
+
+                $result = Db::name(STAFF)->insert($params);
+                $staff_id = Db::name(STAFF)->getLastInsID();
+                $result2 = Db::name(STAFF_FINANCE)->insert(['staff_id'=>$staff_id]);
                 if($result && $result2)
                 {
-                    pdo_commit();//提交事务
-
-                    $StaffQueueModel = new StaffQueueModel($params['section_number']);
-                    $StaffQueueModel->Write($staff_id);
+                    Db::commit();//提交事务
+//                    $StaffQueueModel = new StaffQueueModel($params['section_number']);
+//                    $StaffQueueModel->Write($staff_id);
                     return [ErrorCode::SUCCESS,'添加成功'];
                 }
                 else
                 {
-                    pdo_rollback();//回滚事务
+                    Db::rollback();//回滚事务
                 }
             }
         }
@@ -140,12 +139,13 @@ class StaffModel extends BaseModel
         }
         else
         {
-            $res = pdo_update(STAFF, ['is_del'=>1],['id'=>$staff_id]);
+            $params['is_del'] = 1;
+            $res = Db::name(STAFF)->where(" id = {$staff_id} ")->update($params);
             if ($res)
             {
-                $section_number = pdo_getcolumn(STAFF,['id'=>$staff_id],'section_number');
-                $StaffQueueModel = new StaffQueueModel($section_number);
-                $StaffQueueModel->delete($staff_id);
+//                $section_number = pdo_getcolumn(STAFF,['id'=>$staff_id],'section_number');
+//                $StaffQueueModel = new StaffQueueModel($section_number);
+//                $StaffQueueModel->delete($staff_id);
                 return [ErrorCode::SUCCESS,'操作成功'];
             }
         }

@@ -22,12 +22,12 @@ class Base
         $action = $request->action();
         if (!empty($action) && !in_array(strtolower($action),self::$not_check_actions))
         {
-            $utoken = $request->header('utoken');
-            if(empty($utoken))
+            $token = $request->header('token');
+            if(empty($token))
             {
-                return_msg(ErrorCode::FAILED,'未获取到utoken');
+                return_msg(ErrorCode::FAILED,'未获取到token');
             }
-            $result = AdminModel::checkLogin($utoken);
+            $result = AdminModel::checkLogin($token);
             if ($result[0] == 0)
             {
                 $this->user = $result[2];

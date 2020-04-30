@@ -56,7 +56,7 @@ class Staff extends Base
     {
         $id = input('id',0);
         $result = StaffModel::staffDel($id);
-        return_msg($result[0],$result[1],$result[2]);
+        return_msg($result[0],$result[1]);
     }
 
 

@@ -9,12 +9,12 @@ class AdminModel extends BaseModel
     {
     }
 
-    public static function checklogin($utoken)
+    public static function checklogin($token)
     {
-        $user = self::getAdmin(['utoken'=>$utoken]);
+        $user = self::getAdmin(['token'=>$token]);
         if(empty($user['id']))
         {
-            return [ErrorCode::FAILED,'utoken失效,请重新登陆授权'];
+            return [ErrorCode::FAILED,'token失效,请重新登陆授权'];
         }
         else
         {
@@ -26,14 +26,14 @@ class AdminModel extends BaseModel
     {
         $username = trim($params['username']);
         $password = trim($params['password']);
-        $info = self::getAdmin(['username'=>$username],'id,utoken,nickname,password,is_del');
+        $info = self::getAdmin(['username'=>$username],'id,token,nickname,password,is_del');
         if(empty($info))
         {
             return [ErrorCode::LOGIN_ACCOUNT_NOT_EXISTS,'帐号不存在'];
         }
         else
         {
-            if(0 > $info['is_del'])
+            if($info['is_del'] == 1)
             {
                 return [ErrorCode::LOGIN_ACCOUNT_DISABLE,'帐号被禁用，请联系管理员'];
             }
@@ -42,7 +42,7 @@ class AdminModel extends BaseModel
                 return [ErrorCode::LOGIN_ACCOUNT_PASSWORD_INCORRECT,'帐号或密码错误'];
             }
         }
-        $return_data['utoken'] = $info['utoken'];
+        $return_data['token'] = $info['token'];
         $return_data['nickname'] = $info['nickname'];
         return [ErrorCode::SUCCESS,'登录成功',$return_data];
     }
@@ -50,6 +50,7 @@ class AdminModel extends BaseModel
     public static function getAdmin($params,$field='id,nickname')
     {
         $info = Db::name(ADMIN)->where($params)->field($field)->find();
+//        echo Db::name(ADMIN)->getLastSql();die;
         return $info;
     }
 
