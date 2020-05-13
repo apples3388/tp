@@ -1,6 +1,9 @@
 <?php
 namespace app\api\model;
+use app\common\model\ErrorCode;
 use think\Db;
+use http\Request;
+use wechat\WXBizDataCrypt;
 
 class UserModel extends BaseModel
 {
@@ -33,54 +36,38 @@ class UserModel extends BaseModel
         }
     }
 
-//    public function validate($data=array(),$fields=array())
-//    {
-//        if (empty($data))
-//        {
-//            return_msg(0, '缺少参数');
-//        }
-//        $info = $this->getInfo($data,$fields);
-//        if(!$info)
-//        {
-//            return_msg(0, '该用户尚未注册');
-//        }
-//        else
-//        {
-//            return $info;
-//        }
-//    }
-
 
     /**
      * 检测登陆
      */
-    public function authLogin($code='')
+    public static function authLogin($code='')
     {
         if(!empty($code))
         {
-            $post_data['appid'] = $this->appid;
-            $post_data['secret'] = $this->secret;
+            $wxConfig = self::getWxConfig();
+            $post_data['appid'] = $wxConfig['userAppid'];
+            $post_data['secret'] = $wxConfig['userSecret'];
             $post_data['js_code'] = $code;
             $post_data['grant_type'] = 'authorization_code';
-            $res = https_request($this->url,$post_data);
-
+            $result = Request::send($wxConfig['getOpenIdUrl'],$post_data);
+            $res = json_decode($result);
             if(isset($res->session_key) && isset($res->openid))
             {
                 $openid = trim($res->openid);
                 $session_key = trim($res->session_key);
-                $this->addEditUser($openid,$session_key);
+                return self::addEditUser($openid,$session_key);
             }
             else
             {
-                return return_msg(1, '',$res);
+                return [ErrorCode::FAILED,'操作失败',$res];
             }
         }
+        return [ErrorCode::FAILED,'未获取到小程序code'];
     }
 
-    public function addEditUser($openid,$session_key)
+    public static function addEditUser($openid,$session_key)
     {
-        $user = pdo_get(USER, ['openid'=>$openid], ['id','phone']);
-
+        $user = Db::name(USER)->where(" openid = '{$openid}' ")->field('id,phone')->find();
         $session_id = md5(mt_rand() . $openid);
         if (0 >= intval($user['id']))
         {
@@ -88,7 +75,7 @@ class UserModel extends BaseModel
             $data['session_key'] = $session_key;
             $data['createtime'] = TIMESTAMP;
             $data['session_id'] = $session_id;
-            $res = pdo_insert(USER, $data);
+            $res = Db::name(USER)->insert($data);
             if ($res) {
 //                $user_id = pdo_insertid();
                 //新用户注册送10元洗车优惠券(有效期1周)
@@ -96,9 +83,9 @@ class UserModel extends BaseModel
 //                    'coupon_id'=> 1,
 //                    'user_id'=>$user_id,
 //                ]);
-                return return_msg(ErrorCode::SUCCESS, '添加用户成功', ['session_id' => $session_id]);
+                return [ErrorCode::SUCCESS, '添加用户成功', ['session_id' => $session_id]];
             } else {
-                return return_msg(ErrorCode::FAILED, '添加用户失败');
+                return [ErrorCode::FAILED, '添加用户失败'];
             }
         }
         else if (0 < intval($user['id']))
@@ -106,56 +93,58 @@ class UserModel extends BaseModel
             $data['session_key'] = $session_key;
             $data['updatetime'] = TIMESTAMP;
             $data['session_id'] = $session_id;
-            $res = pdo_update(USER, $data, ['openid' => $openid]);
+            $res = Db::name(USER)->where(" openid  = '{$openid}' ")->update($data);
             if ($res) {
-                return return_msg(ErrorCode::SUCCESS, '更新用户成功', ['session_id' => $session_id,'phone'=>$user['phone']]);
+                return [ErrorCode::SUCCESS, '更新用户成功', ['session_id' => $session_id,'phone'=>$user['phone']]];
             } else {
-                return return_msg(ErrorCode::FAILED, '更新用户失败');
+                return [ErrorCode::FAILED, '更新用户失败'];
             }
         }
         else
         {
-            return return_msg(1, '未知错误,请联系管理员');
+            return [ErrorCode::FAILED, '未知错误,请联系管理员'];
         }
-
-
-
     }
 
-    public function getPhoneNumber($wx_data)
+    public static function getPhoneNumber($params)
     {
-        $user = $this->validate(['session_id'=>$wx_data['session_id']]);
-        $pc = new \WXBizDataCrypt($this->appid, $user['session_key']);
-        $errCode = $pc->decryptData($wx_data['encryptedData'], $wx_data['iv'], $data );
+        if (empty($params['iv']) || empty($params['encryptedData'])) {
+            return [ErrorCode::FAILED, '缺少参数'];
+        }
+        $user = Db::name(USER)->where(" id = '{$params['user_id']}' ")->field('id,session_id,session_key')->find();
+        if(empty($user))
+        {
+            return [ErrorCode::FAILED, '该用户尚未注册'];
+        }
+        $wxConfig = self::getWxConfig();
+        $pc = new WXBizDataCrypt($wxConfig['userAppid'], $user['session_key']);
+        $errCode = $pc->decryptData($params['encryptedData'], $params['iv'], $data );
         if ($errCode == 0)
         {
             $json = json_decode($data);
             $phone = $json->phoneNumber;
             //判断多个微信号绑定一个手机号
-            $is_phone = $this->getField(['phone'=>$phone],'id');
+            $is_phone = Db::name(USER)->where(" phone = '{$phone}' ")->column('id');
             if($is_phone > 0)
             {
-                return ['code'=>1, 'msg'=>'该账号已绑定手机号'.$phone];
+                return [ErrorCode::FAILED,'该账号已绑定手机号'.$phone];
             }
             else
             {
-                $res = $this->addEditData(
-                    ['phone'=>$phone],
-                    ['session_id'=>$user['session_id']
-                    ]);
+                $res = Db::name(USER)->where(" session_id  = '{$user['session_id']}' ")->update(['phone'=>$phone]);
                 if($res)
                 {
-                    return ['code'=>0, 'msg'=>'', 'data'=> ['phone'=>$phone]];
+                    return [ErrorCode::SUCCESS,'操作成功',['phone'=>$phone]];
                 }
                 else
                 {
-                    return ['code'=>1, 'msg'=>'获取失败,请联系管理员'];
+                    return [ErrorCode::FAILED,'获取失败,请联系管理员'];
                 }
             }
         }
         else
         {
-            return ['code'=>1,'msg'=>'解码错误'];
+            return [ErrorCode::FAILED,'解码错误'];
         }
     }
 

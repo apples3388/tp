@@ -54,8 +54,8 @@ class StaffModel extends BaseModel
         {
             foreach($list as $key => $val)
             {
-//            $photo = !empty($val['photo']) ? $val['photo'] : 'images/global/avatars/avatar_0.jpg';
-//            $list[$key]['photo'] = $photo;
+                $photo = !empty($val['photo']) ? $val['photo'] : PUBLIC_PATH . 'images/staff_default_avatar.jpg';
+                $list[$key]['photo'] = $photo;
                 $list[$key]['status'] = ($val['is_work']>0) ? 2 : 0;
             }
         }

@@ -17,7 +17,7 @@ class Base
     {
         //获取当前请求的name变量
         $request = Request::instance();
-        $this->session_id = $request->param('session_id','ha');
+        $this->session_id = input('session_id','');
 //        $module = $request->module();
 //        $controller = $request->controller();
         $action = $request->action();

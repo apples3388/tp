@@ -7,6 +7,11 @@ use think\Model;
 class BaseModel extends Model
 {
 
+    protected static function getWxConfig()
+    {
+        return \think\Config::get('config.wxConfig');
+    }
+
     //自定义初始化
     protected function initialize()
     {
